@@ -92,7 +92,7 @@ export default function VideoDownloader() {
     const fetchThumbnail = async () => {
       if (videoUrl && isValidUrl(videoUrl)) {
         try {
-          const response = await fetch("http://127.0.0.1:5328/thumbnail", {
+          const response = await fetch("http://127.0.0.1:5328/video-info", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -102,17 +102,17 @@ export default function VideoDownloader() {
 
           if (!response.ok) {
             const errorData = await response.json(); // Attendre la résolution de la promesse
-            throw new Error(errorData.message || "Failed fetching thumbnail");
+            throw new Error(errorData.message || "Failed fetching infos");
           }
 
           const data = await response.json();
           console.log(data)
           setThumbnailUrl(data.thumbnailUrl);
           setVideoInfo({
-            title: "How to Build Amazing Web Applications with React",
-            views: "1.4M",
-            channel: "Web Dev Mastery",
-            duration: "15:42",
+            title: data.title,
+            views: data.views,
+            channel: data.channel,
+            duration: data.duration,
           });
           setError("");
         } catch (err) {
