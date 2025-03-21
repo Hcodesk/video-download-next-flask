@@ -11,6 +11,9 @@ const nextConfig = {
       },
     ]
   },
+  images: {
+    domains: ['i.ytimg.com'], // Ajoutez le domaine ici
+  },
 }
 
 module.exports = nextConfig

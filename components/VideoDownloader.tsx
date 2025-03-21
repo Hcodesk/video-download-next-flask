@@ -16,8 +16,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function VideoDownloader() {
   const [videoUrl, setVideoUrl] = useState("")
-  const [format, setFormat] = useState("mp4")
+  const [format, setFormat] = useState("")
   const [thumbnailUrl, setThumbnailUrl] = useState("")
+  const [availableFormats, setAvailableFormats] = useState<{ format_id: string; resolution: string; ext: string }[]>([]);
   const [progress, setProgress] = useState(0)
   const [isDownloading, setIsDownloading] = useState(false)
   const [error, setError] = useState("")
@@ -39,29 +40,97 @@ export default function VideoDownloader() {
     }
   }
 
-  // Function to fetch thumbnail (simplified for demo)
+  //function to fetch formats
+  /* {
+    "formats": [
+      { "format_id": "18", "format_note": "360p", "ext": "mp4" },
+      { "format_id": "22", "format_note": "720p", "ext": "mp4" },
+      { "format_id": "251", "format_note": "audio only", "ext": "webm" }
+    ]
+  } */
+    const fetchFormats = async () => {
+      if (videoUrl && isValidUrl(videoUrl)) {
+        try {
+          const response = await fetch("http://127.0.0.1:5328/formats", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ video_url: videoUrl }),
+          });
+    
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || "Failed fetching formats");
+          }
+    
+          const data: { formats: { format_id: string; resolution: string; ext: string }[] } = await response.json();
+    
+          // Set available formats
+          setAvailableFormats(data.formats); // Mettre à jour l'état avec des formats uniques
+          setError("");
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "An error occurred");
+          setAvailableFormats([]);
+        }
+      } else {
+        setAvailableFormats([]);
+        setError("Please enter a valid URL");
+      }
+    };
+
+  // Fetch available formats when video URL changes
   useEffect(() => {
     if (videoUrl && isValidUrl(videoUrl)) {
-      // In a real app, you would fetch the actual video info from an API
-      // This is a simplified example that just uses placeholder data
-      setThumbnailUrl(`/placeholder.svg?height=180&width=320`)
-      setVideoInfo({
-        title: "How to Build Amazing Web Applications with React",
-        views: "1.4M",
-        channel: "Web Dev Mastery",
-        duration: "15:42",
-      })
-      setError("")
-    } else if (videoUrl) {
-      setThumbnailUrl("")
-      setVideoInfo(null)
-      setError("Please enter a valid URL")
+      fetchFormats()
     } else {
-      setThumbnailUrl("")
-      setVideoInfo(null)
-      setError("")
+      setAvailableFormats([])
+      setError("Please enter a valid URL")
     }
   }, [videoUrl])
+
+  // Function to fetch thumbnail (simplified for demo)
+  useEffect(() => {
+    const fetchThumbnail = async () => {
+      if (videoUrl && isValidUrl(videoUrl)) {
+        try {
+          const response = await fetch("http://127.0.0.1:5328/thumbnail", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              video_url: videoUrl,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json(); // Attendre la résolution de la promesse
+            throw new Error(errorData.message || "Failed fetching thumbnail");
+          }
+
+          const data = await response.json();
+          console.log(data)
+          setThumbnailUrl(data.thumbnailUrl);
+          setVideoInfo({
+            title: "How to Build Amazing Web Applications with React",
+            views: "1.4M",
+            channel: "Web Dev Mastery",
+            duration: "15:42",
+          });
+          setError("");
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "An error occurred");
+        }
+      } else if (videoUrl) {
+        setThumbnailUrl("");
+        setVideoInfo(null);
+        setError("Please enter a valid URL");
+      } else {
+        setThumbnailUrl("");
+        setVideoInfo(null);
+        setError("");
+      }
+    };
+
+    fetchThumbnail(); // Appeler la fonction async
+  }, [videoUrl]);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -182,9 +251,11 @@ export default function VideoDownloader() {
                 <SelectValue placeholder="Select format" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="mp4">MP4 Video</SelectItem>
-                <SelectItem value="mp3">MP3 Audio</SelectItem>
-                <SelectItem value="webm">WebM Video</SelectItem>
+                {availableFormats.map((f) => (
+                  <SelectItem key={f.format_id} value={f.format_id}>
+                    {`${f.resolution || f.ext} (${f.ext})`}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -216,7 +287,7 @@ export default function VideoDownloader() {
           <Button
             type="submit"
             className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium py-2 px-4 rounded-md transition-all duration-200 shadow-md hover:shadow-lg"
-            disabled={isDownloading || !videoUrl || !videoInfo}
+            disabled={isDownloading || !videoUrl || !videoInfo || availableFormats.length === 0 || !format}
           >
             {isDownloading ? (
               <span className="flex items-center justify-center">Downloading...</span>
